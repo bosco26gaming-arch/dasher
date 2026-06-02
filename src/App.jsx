@@ -42,8 +42,11 @@ export default function App() {
       return;
     }
 
-    const totalFuelCost = (dist / 100) * parseFloat(carL100k || 0) * gasPrice;
-    const totalWearCost = dist * parseFloat(runningCostPerKm || 0);
+    const configCarL100k = parseFloat(carL100k) || 0;
+    const configRunningCost = parseFloat(runningCostPerKm) || 0;
+
+    const totalFuelCost = (dist / 100) * configCarL100k * gasPrice;
+    const totalWearCost = dist * configRunningCost;
     const tripCarCosts = totalFuelCost + totalWearCost;
     
     const totalNetProfit = gross - tripCarCosts;
@@ -53,10 +56,9 @@ export default function App() {
     const friendNetProfit = isSplit ? netProfitSplit : 0;
 
     const myPureProfit = isSplit ? (netProfitSplit + tipAmt) : (totalNetProfit + tipAmt);
-    const hourlyRate = (myPureProfit / timeMins) * 60;
-    const isWorthIt = hourlyRate >= parseFloat(requiredHourly || 0);
+    const hourlyRate = timeMins > 0 ? (myPureProfit / timeMins) * 60 : 0;
+    const isWorthIt = hourlyRate >= (parseFloat(requiredHourly) || 0);
 
-    // FIXED: Save them directly as raw floats here so math arithmetic scales smoothly
     setTripResult({
       gross: gross,
       tips: tipAmt,
@@ -176,10 +178,12 @@ export default function App() {
   const totalSessionFriendNet = sessionTrips.reduce((sum, item) => sum + item.friendNet, 0);
   const totalSessionCarCosts = sessionTrips.reduce((sum, item) => sum + item.costs, 0);
 
-  const overallEarningsDenominator = (totalSessionGross + totalSessionTips) > 0 ? (totalSessionGross + totalSessionTips) : 1;
-  const myProfitPct = Math.max(0, (totalSessionMyPureProfit / overallEarningsDenominator) * 100);
-  const friendProfitPct = Math.max(0, (totalSessionFriendNet / overallEarningsDenominator) * 100);
-  const carExpensesPct = Math.max(0, (totalSessionCarCosts / overallEarningsDenominator) * 100);
+  // FIXED: Bulletproofed Denominator calculations to protect against rendering NaN values in CSS inline widths
+  const overallEarningsDenominator = (totalSessionMyPureProfit + totalSessionFriendNet + totalSessionCarCosts);
+  
+  const myProfitPct = overallEarningsDenominator > 0 ? Math.max(0, (totalSessionMyPureProfit / overallEarningsDenominator) * 100) : 0;
+  const friendProfitPct = overallEarningsDenominator > 0 ? Math.max(0, (totalSessionFriendNet / overallEarningsDenominator) * 100) : 0;
+  const carExpensesPct = overallEarningsDenominator > 0 ? Math.max(0, (totalSessionCarCosts / overallEarningsDenominator) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans antialiased selection:bg-red-500 selection:text-white">
@@ -293,7 +297,6 @@ export default function App() {
                       : (tripResult.isWorthIt ? "ACCEPT TRIP" : "DECLINE TRIP")}
                   </h2>
                   
-                  {/* FIXED: Formatted the string rendering here with .toFixed() instead of inside the state storage container */}
                   <p className="text-sm text-gray-700 my-0.5">Est. True Hourly Velocity: <span className="font-bold text-gray-900">${tripResult.hourlyRate.toFixed(2)}/hr</span></p>
                   <p className="text-sm text-gray-700 my-0.5">Car Overhead (Fuel + Wear): ${tripResult.costs.toFixed(2)}</p>
                   {tripResult.tips > 0 && <p className="text-sm text-gray-700 my-0.5">Retained Tip Revenue: +${tripResult.tips.toFixed(2)}</p>}
@@ -382,7 +385,6 @@ export default function App() {
                 <button className="text-red-600 hover:text-red-700 font-semibold text-xs transition-colors" onClick={resetSessionWithBackup}>Reset Session</button>
               </div>
 
-              {/* REPLACED FLATLIST WITH STANDARD JS MAP */}
               <div className="flex-1 overflow-y-auto max-h-[320px] pr-1 flex flex-col gap-2">
                 {sessionTrips.length === 0 ? (
                   <p className="text-center text-gray-400 text-xs py-8">No data logged in this shift.</p>
